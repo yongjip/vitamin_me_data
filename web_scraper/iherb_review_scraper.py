@@ -8,6 +8,7 @@ import bs4
 import pandas as pd
 import dask.dataframe as dd
 from datetime import datetime
+from selenium.webdriver.common.keys import Keys
 
 # review url
 default_country = 'KR' # US
@@ -127,39 +128,45 @@ page_remaining = 1
 
 review_data = []
 while page_remaining > 0:
-    print('remaining at least:', page_remaining)
-    change_default_country(default_country)
+    try:
+        print('remaining at least:', page_remaining)
+        change_default_country(default_country)
 
-    html = driver.execute_script("return document.documentElement.outerHTML")
-    sleep(3)
+        html = driver.execute_script("return document.documentElement.outerHTML")
+        sleep(3)
 
-    soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, 'html.parser')
 
-    reviews = soup.findAll("div", {"class": 'review-row'})
-    review_cnt = len(reviews)
+        reviews = soup.findAll("div", {"class": 'review-row'})
+        review_cnt = len(reviews)
 
-    # while review_cnt > 0
+        # while review_cnt > 0
 
-    for review_soup in reviews:
-        row_i = scrape_review(review_soup)
-        review_data.append(row_i)
+        for review_soup in reviews:
+            row_i = scrape_review(review_soup)
+            review_data.append(row_i)
 
-    df = pd.DataFrame(review_data, columns=review_column_names)
-    print(df)
+        df = pd.DataFrame(review_data, columns=review_column_names)
+        print(df)
 
-    paging = soup.find("div", {"class": "paging"})
-    current_page_num = int(paging.find('button', {'class': 'selected-page'}).text)
+        paging = soup.find("div", {"class": "paging"})
+        current_page_num = int(paging.find('button', {'class': 'selected-page'}).text)
 
-    page_num_elements = paging.find_all('button', {'class': 'page'})
-    page_numbers = [int(elem.text) for elem in page_num_elements]
+        page_num_elements = paging.find_all('button', {'class': 'page'})
+        page_numbers = [int(elem.text) for elem in page_num_elements]
 
-    page_remaining = [1 if current_page_num < page_i else 0 for page_i in page_numbers]
-    page_remaining = sum(page_remaining)
-    if page_remaining > 0:
-        # go to the next page
-        next_page = driver.find_elements_by_class_name('arrow-button')[1]
-        next_page.click()
-        sleep(4)
+        page_remaining = [1 if current_page_num < page_i else 0 for page_i in page_numbers]
+        page_remaining = sum(page_remaining)
+        if page_remaining > 0:
+            # go to the next page
+            next_page = driver.find_elements_by_class_name('arrow-button')[1]
+            next_page.click()
+            driver.find_element_by_tag_name('body').send_keys(Keys.CONTROL + Keys.HOME)
+            sleep(4)
+    except Exception as e:
+        print(e)
+        sleep(3)
+        pass
 
 
 df = pd.DataFrame(review_data, columns=review_column_names)
