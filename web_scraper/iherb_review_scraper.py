@@ -118,6 +118,7 @@ driver.get(base_url)
 sleep(4)
 change_default_country(default_country)
 
+# product_id = 23452
 product_id = 71684
 
 url = f'https://kr.iherb.com/r/a/{product_id}'
@@ -141,12 +142,12 @@ while page_remaining > 0:
         review_cnt = len(reviews)
 
         # while review_cnt > 0
-
+        review_data_i = []
         for review_soup in reviews:
             row_i = scrape_review(review_soup)
-            review_data.append(row_i)
+            review_data_i.append(row_i)
 
-        df = pd.DataFrame(review_data, columns=review_column_names)
+        df = pd.DataFrame(review_data_i, columns=review_column_names)
         print(df)
 
         paging = soup.find("div", {"class": "paging"})
@@ -159,19 +160,29 @@ while page_remaining > 0:
         page_remaining = sum(page_remaining)
         if page_remaining > 0:
             # go to the next page
-            next_page = driver.find_elements_by_class_name('arrow-button')[1]
-            next_page.click()
+            next_page_elem = driver.find_elements_by_class_name('arrow-button')[1]
+            # coordinates = next_page_elem.location_once_scrolled_into_view  # returns dict of X, Y coordinates
+            # driver.execute_script('window.scrollTo({}, {});'.format(coordinates['x'], coordinates['y']))
+            # driver.execute_script("return arguments[0].scrollIntoView(true);", next_page_elem)
+            driver.execute_script("arguments[0].scrollIntoView();", next_page_elem)
+            driver.execute_script("$(arguments[0]).click();", next_page_elem)
+            sleep(2)
+            next_page_elem.click()
+            sleep(1)
             driver.find_element_by_tag_name('body').send_keys(Keys.CONTROL + Keys.HOME)
             sleep(4)
+            review_data += review_data_i
+        else:
+            review_data += review_data_i
     except Exception as e:
         print(e)
+        driver.find_element_by_tag_name('body').send_keys(Keys.CONTROL + Keys.HOME)
         sleep(3)
         pass
 
 
 df = pd.DataFrame(review_data, columns=review_column_names)
-
+# df.to_csv('test.csv', index=False)
 # 'Show Original Language'
 # dd = f"//input[contains(.,'Show Original Language')]"
 # driver.find_elements_by_css_selector("input[type='hidden']")
-
