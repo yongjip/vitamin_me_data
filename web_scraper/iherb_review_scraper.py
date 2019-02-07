@@ -6,16 +6,33 @@ from selenium.webdriver.chrome.options import Options
 from time import sleep
 import bs4
 import pandas as pd
-
+import dask.dataframe as dd
+from datetime import datetime
 
 # review url
-product_id = 71684
-url = f'https://kr.iherb.com/r/a/{product_id}'
+default_country = 'KR' # US
+base_url = 'https://kr.iherb.com/'
 
 
-default_country = 'KR'
-review_language_options = ['All', 'Korean', 'English']
-review_language = review_language_options[1]
+REVIEW_STAR_PATTERN = r'<svg class="icon icon-stars_(\d)0 stars-rating">'
+
+REVIEW_YES_NO_CNT_PATTERN_KR = r'(네|아니요) \((\d+)\)'
+REVIEW_YES_NO_CNT_PATTERN_US = r'(Yes|No) \((\d+)\)'
+
+REVIEW_DATE_PATTERN_KR = '게시 날짜: %m월 %d %Y'
+REVIEW_DATE_PATTERN_US = 'Posted on %B %d %Y'
+
+
+if default_country == 'KR':
+    REVIEW_YES_NO_CNT_PATTERN = REVIEW_YES_NO_CNT_PATTERN_KR
+    REVIEW_DATE_PATTERN = REVIEW_DATE_PATTERN_KR
+    review_language = "Korean"
+elif default_country == 'US':
+    REVIEW_YES_NO_CNT_PATTERN = REVIEW_YES_NO_CNT_PATTERN_US
+    REVIEW_DATE_PATTERN = REVIEW_DATE_PATTERN_US
+    review_language = 'English' # 'All'
+
+review_column_names = ['rundt', 'product_id', 'customer_id', 'headline', 'stars','posted_date', 'review_body', 'helpful_cnt', 'not_helpful_cnt']
 
 
 # url = 'https://kr.iherb.com/r/a/42963'
@@ -29,12 +46,6 @@ options.add_argument('start-maximized') #
 options.add_argument('--no-sandbox') # Bypass OS security model
 options.add_argument('disable-infobars')
 options.add_argument("--disable-extensions")
-
-driver = webdriver.Chrome(CHROMEDRIVER_PATH, options=options)
-
-driver.get(url)
-
-sleep(4)
 
 
 def change_review_language():
@@ -53,7 +64,6 @@ def click_machine_translation_option():
 # change default language
 def change_default_country(new_default_country='KR'):
     country_select = driver.find_element_by_class_name('country-select')
-    sleep(3)
     old_default_country = country_select.text
     if new_default_country == old_default_country:
         return f'current default country is already {new_default_country}'
@@ -77,26 +87,12 @@ def change_default_country(new_default_country='KR'):
     return print(f'changed default language from {old_default_country} to {new_default_country}')
 
 
-change_default_country(default_country)
-
-html = driver.execute_script("return document.documentElement.outerHTML")
-soup = BeautifulSoup(html, 'html.parser')
-
-reviews = soup.findAll("div", {"class": 'review-row'})
-review_cnt = len(reviews)
-
-#condition: reveiw count > 0 & next page
-
-
-REVIEW_STAR_PATTERN = r'<svg class="icon icon-stars_(\d)0 stars-rating">'
-REVIEW_YES_NO_CNT_PATTERN = r'(Yes|No) \((\d+)\)'
-review_column_names = ['product_id', 'customer_id', 'headline', 'stars','posted_date', 'review_body', 'helpful_cnt', 'not_helpful_cnt']
-
-
 def scrape_review(soup):
     assert isinstance(soup, bs4.element.Tag)
-    customer_id = review_soup.find_all('a', href=True)[0]['href'].split('/')[-1]
-    product_id = review_soup.find_all('a', href=True)[1]['href'].split('/')[-1] # 0 = customer url, 1 == product url
+    rundt = datetime.now().date()
+
+    customer_id = soup.find_all('a', href=True)[0]['href'].split('/')[-1]
+    product_id = soup.find_all('a', href=True)[1]['href'].split('/')[-1] # 0 = customer url, 1 == product url
 
     stars = soup.find('svg', {'class': 'icon'})
     m = re.search(REVIEW_STAR_PATTERN, str(stars))
@@ -104,6 +100,7 @@ def scrape_review(soup):
 
     headline = soup.find('h3', {'class': 'review-headline'}).text
     posted_date = soup.find('span', {'class': 'posted-date'}).text
+    posted_date_dt = datetime.strptime(posted_date, REVIEW_DATE_PATTERN)
     review_body = soup.find('div', {'class': 'review-text'}).text
 
     helpfulness = soup.find_all('button', {'class': 'btn btn-default btn-xs'})
@@ -111,35 +108,63 @@ def scrape_review(soup):
     helpful_cnt = re.search(REVIEW_YES_NO_CNT_PATTERN, str(helpful)).group(2)
     not_helpful = helpfulness[1].text
     not_helpful_cnt = re.search(REVIEW_YES_NO_CNT_PATTERN, str(not_helpful)).group(2)
-    return [int(product_id), customer_id, headline, int(stars), posted_date, review_body, int(helpful_cnt), int(not_helpful_cnt)]
 
+    return [rundt, int(product_id), customer_id, headline, int(stars), posted_date_dt, review_body, int(helpful_cnt), int(not_helpful_cnt)]
+
+
+driver = webdriver.Chrome(CHROMEDRIVER_PATH, options=options)
+driver.get(base_url)
+sleep(4)
+change_default_country(default_country)
+
+product_id = 71684
+
+url = f'https://kr.iherb.com/r/a/{product_id}'
+
+driver.get(url)
+sleep(4)
+page_remaining = 1
 
 review_data = []
-for review_soup in reviews:
-    row_i = scrape_review(review_soup)
-    review_data.append(row_i)
+while page_remaining > 0:
+    print('remaining at least:', page_remaining)
+    change_default_country(default_country)
+
+    html = driver.execute_script("return document.documentElement.outerHTML")
+    sleep(3)
+
+    soup = BeautifulSoup(html, 'html.parser')
+
+    reviews = soup.findAll("div", {"class": 'review-row'})
+    review_cnt = len(reviews)
+
+    # while review_cnt > 0
+
+    for review_soup in reviews:
+        row_i = scrape_review(review_soup)
+        review_data.append(row_i)
+
+    df = pd.DataFrame(review_data, columns=review_column_names)
+    print(df)
+
+    paging = soup.find("div", {"class": "paging"})
+    current_page_num = int(paging.find('button', {'class': 'selected-page'}).text)
+
+    page_num_elements = paging.find_all('button', {'class': 'page'})
+    page_numbers = [int(elem.text) for elem in page_num_elements]
+
+    page_remaining = [1 if current_page_num < page_i else 0 for page_i in page_numbers]
+    page_remaining = sum(page_remaining)
+    if page_remaining > 0:
+        # go to the next page
+        next_page = driver.find_elements_by_class_name('arrow-button')[1]
+        next_page.click()
+        sleep(4)
+
 
 df = pd.DataFrame(review_data, columns=review_column_names)
 
-
-paging = soup.find("div", {"class": "paging"})
-current_page_num = int(paging.find('button', {'class': 'selected-page'}).text)
-
-page_num_elements = paging.find_all('button', {'class': 'page'})
-page_numbers = [int(elem.text) for elem in page_num_elements]
-
-page_remaining = [1 if current_page_num < page_i else 0 for page_i in page_numbers]
-
-if sum(page_remaining) > 0:
-    pass
-
-# go to the next page
-next_page = driver.find_elements_by_class_name('arrow-button')[1]
-next_page.click()
-
-
-
-'Show Original Language'
-dd = f"//input[contains(.,'Show Original Language')]"
-driver.find_elements_by_css_selector("input[type='hidden']")
+# 'Show Original Language'
+# dd = f"//input[contains(.,'Show Original Language')]"
+# driver.find_elements_by_css_selector("input[type='hidden']")
 
