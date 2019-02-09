@@ -18,6 +18,7 @@ from datetime import datetime
 default_country = 'KR' # US
 base_url = 'https://kr.iherb.com/'
 
+CATEGORY_REGEX = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)(.+)">'
 
 CHROMEDRIVER_PATH = "./chromedriver"
 
@@ -47,3 +48,12 @@ no_review = len(empty_if_review_exists)
 print(no_review)
 
 soup.find_all('a', {'class': 'last'}) # 0 == brand, 1 == last cate
+
+
+category_raw = str(soup.find('div', {'id': 'breadCrumbs'}))
+category_split = category_raw.split('<br/>')
+
+
+for cate_i in category_split[:-1]:
+    cates = re.findall(CATEGORY_REGEX, cate_i, re.IGNORECASE)
+    print(cates)
