@@ -43,8 +43,8 @@ def review_exists_regex(product_id):
 review_cnt = []
 for file in files:
     print(file)
-    with open(file, 'r') as file:
-        data = json.load(file)
+    with open(file, 'r') as f:
+        data = json.load(f)
     product_ids = list(data.keys())
 
     for product_id in tqdm.tqdm(product_ids):
