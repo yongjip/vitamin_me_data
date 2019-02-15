@@ -16,27 +16,27 @@ def review_exists(product_id):
     html = data[product_id]
     soup = BeautifulSoup(html, 'html.parser')
 
-    none_if_review_exists = soup.find('a', {'class': 'write-review'})
-    if none_if_review_exists is None:
-        return True
-
     page_404 = soup.find('div', {'id': "error-page-404"})
     if page_404:
         # print('page doesn\'t exists')
         return None
+
+    none_if_review_exists = soup.find('a', {'class': 'write-review'})
+    if none_if_review_exists is None:
+        return True
+
     return False
 
 
 def review_exists_regex(product_id):
     html = data[product_id]
-    none_if_review_exists = re.search(r'\<a class\=\"write\-review\" href\=', html, re.IGNORECASE)
-    if none_if_review_exists is None:
-        return True
-
     page_404 = re.search(r'\<i class\=\"error\-404\-icon icon\-sadness\"\>\<\/i\>', html, re.IGNORECASE)
     if page_404:
         # print('page doesn\'t exists')
         return None
+    none_if_review_exists = re.search(r'\<a class\=\"write\-review\" href\=', html, re.IGNORECASE)
+    if none_if_review_exists is None:
+        return True
     return False
 
 
