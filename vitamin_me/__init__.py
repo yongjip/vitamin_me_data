@@ -49,7 +49,7 @@ class WebScraper:
 
     def chrome_driver_get(self, url, sleep_sec=3):
         self.chrome_driver.get(url)
-        # sleep(sleep_sec)
+        sleep(sleep_sec)
         page = self.chrome_driver.execute_script("return document.documentElement.outerHTML")
         return page
 
@@ -100,14 +100,59 @@ class iHerbWebPageParserWithBS:
         return master_price, price
 
     def find_categories(self):
-        CATEGORY_REGEX = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w-_]+)">'
+        category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
 
         category_raw = str(self.soup.find('div', {'id': 'breadCrumbs'}))
         category_split = category_raw.split('<br/>')
-
+        cate_list = []
         for cate_i in category_split[:-1]:
-            cates = re.findall(CATEGORY_REGEX, cate_i, re.IGNORECASE)
+            cates = re.findall(category_regex, cate_i, re.IGNORECASE)
+            cate_list.append(cates)
         return cates
+
+    def find_upc(self):
+        # re.findall(upc_regex, self.source, re.IGNORECASE)
+        # spec_soup = self.soup.find('ul', {'id': 'product-specs-list'})
+        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
+        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE).group(1)
+        return upc
+
+
+class iHerbWebPageParserWithRegex:
+    def __init__(self, source):
+        self.source = source
+
+    def find_price(self):
+        pricing_soup = self.soup.find('section', {'id': 'pricing'})
+        discontinued_soup = self.soup.find('div', {'class': 'discontinued-container'})
+        if pricing_soup:
+            master_price = pricing_soup.find('section', {'id': 'product-msrp'}).s.text
+            price = pricing_soup.find(id='price').text.strip()
+        elif discontinued_soup:
+            master_price = 'Discontinued'
+            price = 'Discontinued'
+        else:
+            master_price = None
+            price = None
+        return master_price, price
+
+    def find_categories(self):
+        cate_section_regex = r'(?=<div id="breadCrumbs">)(.*?)(?=<\/div>)'
+        category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
+        category_raw = re.findall(cate_section_regex, self.source, re.IGNORECASE)[0]
+
+        category_split = category_raw.split('<br/>')
+
+        cate_list = []
+        for cate_i in category_split[:-1]:
+            cates = re.findall(category_regex, cate_i, re.IGNORECASE)
+            cate_list.append(cates)
+        return cates
+
+    def find_upc(self):
+        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
+        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE).group(1)
+        return upc
 
 
 if __name__ == '__main__':
