@@ -7,10 +7,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 sys.path.append('../')
 from vitamin_me import iHerbWebPageParser, iHerbWebPageParserBS, WebPage, change_default_country
-
+import time
 
 input_data_loc = 'data/products_html_pages/products_html_pages_*.json'
-excel_output_loc = 'data/products.xlsx'
+output_loc = 'data/products.csv'
 
 
 CHROMEDRIVER_PATH = "./chromedriver"
@@ -45,6 +45,7 @@ for file in files:
             print(product_id)
             url = f'https://iherb.com/pr/a/{product_id}'
             driver.get(url)
+            time.sleep(3)
             change_default_country(driver, 'US')
             html = driver.execute_script("return document.documentElement.outerHTML")
 
@@ -60,5 +61,12 @@ for file in files:
 
 
 df = pd.DataFrame(output, columns=['product_id'] + parser.column_names)
-df.to_excel(excel_output_loc, index=False)
+
+# df.cate_info = df.cate_info.map(lambda x: str(x))
+# df = df.drop_duplicates()
+# final_df = df[~df.currency.isna()]
+
+final_df = df[~df.upc.isna()]
+
+final_df.to_csv(output_loc, index=False)
 
