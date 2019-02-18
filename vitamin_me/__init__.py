@@ -94,6 +94,7 @@ class iHerbWebPageParser:
         self.product_name_regex = r'<h1 id="name">(.*?)</h1>'
         self.url_regex = r'https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)'
         self.brand_name_regex = r'<div id="brand">\s*\w+\s*<a href="{}"> <span>\s*(.*?)\s*</span>'.format(self.url_regex)
+        self.column_names = ['cate_info', 'upc', 'product_name', 'brand_name', 'currency', 'master_price', 'price']
 
     def find_product_name(self):
         return re.search(self.product_name_regex, self.source).group(1)
@@ -145,8 +146,8 @@ class iHerbWebPageParser:
         page_404_regex = r'\<div id\=\"error\-page\-404\"\>'
         page_404 = re.search(page_404_regex, self.source)
         if page_404:
-            print('page doesn\'t exists')
-            return None
+            # print('page doesn\'t exists')
+            return [None] * 7
         cate_info = self.find_categories()
         upc = self.find_upc()
         product_name = self.find_product_name()
@@ -155,7 +156,7 @@ class iHerbWebPageParser:
         currency = price_info[0]
         master_price = price_info[1]
         price = price_info[2]
-        return cate_info, upc, product_name, brand_name, currency, master_price, price
+        return [cate_info, upc, product_name, brand_name, currency, master_price, price]
 
 
 class iHerbWebPageParserBS(iHerbWebPageParser):
@@ -203,22 +204,22 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
         return cate_list
 
 
-if __name__ == '__main__':
+class iHerbNavigator:
 
-    from random import shuffle
+    def __init__(self, driver):
+        self.driver = driver
 
-    # change default language
-    def change_default_country(driver, new_default_country='KR'):
-        country_select = driver.find_element_by_class_name('country-select')
+    def change_default_country(self, new_default_country='KR'):
+        country_select = self.driver.find_element_by_class_name('country-select')
         old_default_country = country_select.text
         if new_default_country == old_default_country:
             return f'current default country is already {new_default_country}'
         country_select.click()
 
-        search_input = driver.find_element_by_class_name('search-input')
+        search_input = self.driver.find_element_by_class_name('search-input')
         search_input.click()
 
-        country_code_flags = driver.find_elements_by_class_name('country-code-flag')
+        country_code_flags = self.driver.find_elements_by_class_name('country-code-flag')
 
         for elem in country_code_flags:
             # print(elem.text)
@@ -227,10 +228,41 @@ if __name__ == '__main__':
                 break
 
         sleep(3)
-        submit_default_lan_change = driver.find_element_by_css_selector("input[type='submit']")
+        submit_default_lan_change = self.driver.find_element_by_css_selector("input[type='submit']")
         submit_default_lan_change.click()
         sleep(5)
         return print(f'changed default language from {old_default_country} to {new_default_country}')
+
+
+# change default language
+def change_default_country(driver, new_default_country='KR'):
+    country_select = driver.find_element_by_class_name('country-select')
+    old_default_country = country_select.text
+    if new_default_country == old_default_country:
+        return f'current default country is already {new_default_country}'
+    country_select.click()
+
+    search_input = driver.find_element_by_class_name('search-input')
+    search_input.click()
+
+    country_code_flags = driver.find_elements_by_class_name('country-code-flag')
+
+    for elem in country_code_flags:
+        # print(elem.text)
+        if elem.text == new_default_country:
+            elem.click()
+            break
+
+    sleep(3)
+    submit_default_lan_change = driver.find_element_by_css_selector("input[type='submit']")
+    submit_default_lan_change.click()
+    sleep(5)
+    return print(f'changed default language from {old_default_country} to {new_default_country}')
+
+
+if __name__ == '__main__':
+
+    from random import shuffle
 
     product_ids = list(range(0, 90001))
     shuffle(product_ids)
