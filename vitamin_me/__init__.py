@@ -94,6 +94,9 @@ class iHerbWebPageParser:
         self.product_name_regex = r'<h1 id="name">(.*?)</h1>'
         self.url_regex = r'https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)'
         self.brand_name_regex = r'<div id="brand">\s*\w+\s*<a href="{}"> <span>\s*(.*?)\s*</span>'.format(self.url_regex)
+        self.upc_eng_regex = r'<li>UPC Code: <span>\s*(\d+)\s*<\/span>'
+        self.page_404_regex = r'\<div id\=\"error\-page\-404\"\>'
+
         self.column_names = ['cate_info', 'upc', 'product_name', 'brand_name', 'currency', 'master_price', 'price']
 
     def find_product_name(self):
@@ -138,13 +141,11 @@ class iHerbWebPageParser:
         return cate_list
 
     def find_upc(self):
-        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
-        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE | re.DOTALL).group(1)
+        upc = re.search(self.upc_eng_regex, self.source, re.IGNORECASE | re.DOTALL).group(1)
         return upc
 
     def parse_product_page(self):
-        page_404_regex = r'\<div id\=\"error\-page\-404\"\>'
-        page_404 = re.search(page_404_regex, self.source)
+        page_404 = re.search(self.page_404_regex, self.source)
         if page_404:
             # print('page doesn\'t exists')
             return [None] * 7
