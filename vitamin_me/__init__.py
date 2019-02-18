@@ -105,12 +105,14 @@ class iHerbWebPageParser:
         discontinued_tag = re.search(self.discontinued_regex, self.source, re.IGNORECASE | re.DOTALL)
         master_price_tag = re.search(self.msrp_regex, self.source, re.IGNORECASE | re.DOTALL)
         price_tag = re.search(self.price_regex, self.source, re.IGNORECASE | re.DOTALL)
+        master_price_tag = master_price_tag if master_price_tag else price_tag
         if price_tag:
             master_price_with_currency = master_price_tag.group(1).strip()
             price_with_currency = price_tag.group(1).strip()
-            currency = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(1)
+            currency = re.search(self.split_currency_regex, price_with_currency, re.IGNORECASE | re.DOTALL).group(1)
             master_price = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
             price = re.search(self.split_currency_regex, price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
+            return currency, float(master_price), float(price)
         elif discontinued_tag:
             currency = 'Discontinued'
             master_price = None
@@ -122,15 +124,17 @@ class iHerbWebPageParser:
         return currency, master_price, price
 
     def find_categories(self):
-        category_raw = re.findall(self.cate_section_regex, self.source, re.IGNORECASE | re.DOTALL)[0]
-
+        category_raw = re.search(self.cate_section_regex, self.source, re.IGNORECASE | re.DOTALL)
+        if category_raw is None:
+            return None
+        category_raw = category_raw.group()
         category_split = category_raw.split('<br/>')
 
         cate_list = []
         for cate_i in category_split[:-1]:
             cates = re.findall(self.category_regex, cate_i, re.IGNORECASE | re.DOTALL)
             cate_list.append(cates)
-        return cates
+        return cate_list
 
     def find_upc(self):
         upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
@@ -138,6 +142,11 @@ class iHerbWebPageParser:
         return upc
 
     def parse_product_page(self):
+        page_404_regex = r'\<div id\=\"error\-page\-404\"\>'
+        page_404 = re.search(page_404_regex, self.source)
+        if page_404:
+            print('page doesn\'t exists')
+            return None
         cate_info = self.find_categories()
         upc = self.find_upc()
         product_name = self.find_product_name()
@@ -146,7 +155,7 @@ class iHerbWebPageParser:
         currency = price_info[0]
         master_price = price_info[1]
         price = price_info[2]
-        return cate_info, upc, product_name, brand_name, currency, float(master_price), float(price)
+        return cate_info, upc, product_name, brand_name, currency, master_price, price
 
 
 class iHerbWebPageParserBS(iHerbWebPageParser):
@@ -173,7 +182,7 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
             currency = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(1)
             master_price = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
             price = re.search(self.split_currency_regex, price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
-
+            return currency, float(master_price), float(price)
         elif discontinued_soup:
             currency = 'Discontinued'
             master_price = None
@@ -191,45 +200,84 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
         for cate_i in category_split[:-1]:
             cates = re.findall(self.category_regex, cate_i, re.IGNORECASE | re.DOTALL)
             cate_list.append(cates)
-        return cates
+        return cate_list
 
 
 if __name__ == '__main__':
+
+    from random import shuffle
+
+    # change default language
+    def change_default_country(driver, new_default_country='KR'):
+        country_select = driver.find_element_by_class_name('country-select')
+        old_default_country = country_select.text
+        if new_default_country == old_default_country:
+            return f'current default country is already {new_default_country}'
+        country_select.click()
+
+        search_input = driver.find_element_by_class_name('search-input')
+        search_input.click()
+
+        country_code_flags = driver.find_elements_by_class_name('country-code-flag')
+
+        for elem in country_code_flags:
+            # print(elem.text)
+            if elem.text == new_default_country:
+                elem.click()
+                break
+
+        sleep(3)
+        submit_default_lan_change = driver.find_element_by_css_selector("input[type='submit']")
+        submit_default_lan_change.click()
+        sleep(5)
+        return print(f'changed default language from {old_default_country} to {new_default_country}')
+
+    product_ids = list(range(0, 90001))
+    shuffle(product_ids)
+
     CHROMEDRIVER_PATH = "./chromedriver"
 
     scraper = WebScraper()
     scraper.chrome_options.add_argument('--disable-gpu')
-    # scraper.chrome_options.add_argument('--headless')
+    scraper.chrome_options.add_argument('--headless')
     scraper.chrome_options.add_argument('start-maximized')
     scraper.chrome_options.add_argument('--no-sandbox') # Bypass OS security model
     scraper.chrome_options.add_argument('disable-infobars')
     scraper.chrome_options.add_argument("--disable-extensions")
     scraper.initialize_chrome_driver(CHROMEDRIVER_PATH)
 
-    url = f'https://iherb.com/pr/a/51659'
-    page_req = str(scraper.requests_get(url))
+    for product_id in product_ids:
+        url = f'https://iherb.com/pr/a/{product_id}'
 
-    page_sel = scraper.chrome_driver_get(url)
+        page_sel = scraper.chrome_driver_get(url)
+        change_default_country(scraper.chrome_driver, 'US')
 
+        page_sel = WebPage(page_sel)
+        page_sel.clean_source()
+        page_sel.remove_excess_whitespace()
+        page_sel = page_sel.get_source()
+
+        # soup_req = BeautifulSoup(page_req)
+        soup_sel = BeautifulSoup(page_sel)
+        source = str(soup_sel.contents[0])
+
+        parser = iHerbWebPageParser(source)
+        parsed = parser.parse_product_page()
+        print(product_id, parsed)
+
+    soup = BeautifulSoup(source)
+    parserbs = iHerbWebPageParserBS(source)
+    print(parserbs.parse_product_page())
+
+    # page_req = str(scraper.requests_get(url))
     # page_req = WebPage(page_req)
     # page_req.clean_source()
     # page_req.remove_excess_whitespace()
     # page_req = page_req.get_source()
 
-    page_sel = WebPage(page_sel)
-    page_sel.clean_source()
-    page_sel.remove_excess_whitespace()
-    page_sel = page_sel.get_source()
+    # parserbs = iHerbWebPageParserBS(source)
+    # print(parserbs.parse_product_page())
 
-    # soup_req = BeautifulSoup(page_req)
-    soup_sel = BeautifulSoup(page_sel)
-    source = str(soup_sel.contents[0])
-
-    parser = iHerbWebPageParser(source)
-    parser.parse_product_page()
-
-    parserbs = iHerbWebPageParserBS(source)
-    parserbs.parse_product_page()
     # discontinued = re.search(discontinued_regex, source, re.IGNORECASE | re.DOTALL).group(1)
     # master_price = re.search(msrp_regex, source, re.IGNORECASE | re.DOTALL).group(1)
     # price = re.search(price_regex, source, re.IGNORECASE | re.DOTALL).group(1)
