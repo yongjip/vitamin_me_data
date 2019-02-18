@@ -80,79 +80,118 @@ class WebPage:
         return self.source
 
 
-class iHerbWebPageParserWithBS:
+class iHerbWebPageParser:
+
     def __init__(self, source):
         self.source = source
-        self.soup = BeautifulSoup(self.soup)
+        self.preprocessed_source = re.sub(r'\s+',' ', self.source)
+        self.msrp_regex = r'class="col\-xs\-15 col\-md\-16 price">\s*<s>(.*?)</s>'
+        self.price_regex = r'id="price">\s*(.*?)</div>'
+        self.split_currency_regex = r'([^\d])([\d|\.]+)'
+        self.discontinued_regex = r'<p class="discontinued-title">'
+        self.cate_section_regex = r'(?=<div id="breadCrumbs">)(.*?)(?=<\/div>)'
+        self.category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
+        self.product_name_regex = r'<h1 id="name">(.*?)</h1>'
+        self.url_regex = r'https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)'
+        self.brand_name_regex = r'<div id="brand">\s*\w+\s*<a href="{}"> <span>\s*(.*?)\s*</span>'.format(self.url_regex)
 
-    def find_price(self):
+    def find_product_name(self):
+        return re.search(self.product_name_regex, self.source).group(1)
+
+    def find_brand_name(self):
+        return re.search(self.brand_name_regex, self.source).group(1)
+
+    def find_price_info(self):
+        discontinued_tag = re.search(self.discontinued_regex, self.source, re.IGNORECASE | re.DOTALL)
+        master_price_tag = re.search(self.msrp_regex, self.source, re.IGNORECASE | re.DOTALL)
+        price_tag = re.search(self.price_regex, self.source, re.IGNORECASE | re.DOTALL)
+        if price_tag:
+            master_price_with_currency = master_price_tag.group(1).strip()
+            price_with_currency = price_tag.group(1).strip()
+            currency = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(1)
+            master_price = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
+            price = re.search(self.split_currency_regex, price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
+        elif discontinued_tag:
+            currency = 'Discontinued'
+            master_price = None
+            price = None
+        else:
+            currency = None
+            master_price = None
+            price = None
+        return currency, master_price, price
+
+    def find_categories(self):
+        category_raw = re.findall(self.cate_section_regex, self.source, re.IGNORECASE | re.DOTALL)[0]
+
+        category_split = category_raw.split('<br/>')
+
+        cate_list = []
+        for cate_i in category_split[:-1]:
+            cates = re.findall(self.category_regex, cate_i, re.IGNORECASE | re.DOTALL)
+            cate_list.append(cates)
+        return cates
+
+    def find_upc(self):
+        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
+        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE | re.DOTALL).group(1)
+        return upc
+
+    def parse_product_page(self):
+        cate_info = self.find_categories()
+        upc = self.find_upc()
+        product_name = self.find_product_name()
+        brand_name = self.find_brand_name()
+        price_info = self.find_price_info()
+        currency = price_info[0]
+        master_price = price_info[1]
+        price = price_info[2]
+        return cate_info, upc, product_name, brand_name, currency, float(master_price), float(price)
+
+
+class iHerbWebPageParserBS(iHerbWebPageParser):
+
+    def __init__(self, source):
+        iHerbWebPageParser.__init__(self, source)
+        self.soup = BeautifulSoup(self.source)
+
+    def find_product_name(self):
+        product_name = self.soup.find('h1', {'id': 'name'}).text
+        return product_name.strip()
+
+    def find_brand_name(self):
+        brand_name = self.soup.find('div', {'id': 'brand'}).span.text
+        return brand_name.strip()
+
+    def find_price_info(self):
         pricing_soup = self.soup.find('section', {'id': 'pricing'})
         discontinued_soup = self.soup.find('div', {'class': 'discontinued-container'})
         if pricing_soup:
-            master_price = pricing_soup.find('section', {'id': 'product-msrp'}).s.text
-            price = pricing_soup.find(id='price').text.strip()
+            master_price_with_currency = pricing_soup.find('section', {'id': 'product-msrp'}).s.text.strip()
+            price_with_currency = pricing_soup.find(id='price').text.strip()
+
+            currency = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(1)
+            master_price = re.search(self.split_currency_regex, master_price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
+            price = re.search(self.split_currency_regex, price_with_currency, re.IGNORECASE | re.DOTALL).group(2)
+
         elif discontinued_soup:
-            master_price = 'Discontinued'
-            price = 'Discontinued'
-        else:
+            currency = 'Discontinued'
             master_price = None
             price = None
-        return master_price, price
+        else:
+            currency = None
+            master_price = None
+            price = None
+        return currency, master_price, price
 
     def find_categories(self):
-        category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
-
         category_raw = str(self.soup.find('div', {'id': 'breadCrumbs'}))
         category_split = category_raw.split('<br/>')
         cate_list = []
         for cate_i in category_split[:-1]:
-            cates = re.findall(category_regex, cate_i, re.IGNORECASE)
+            cates = re.findall(self.category_regex, cate_i, re.IGNORECASE | re.DOTALL)
             cate_list.append(cates)
         return cates
-
-    def find_upc(self):
-        # re.findall(upc_regex, self.source, re.IGNORECASE)
-        # spec_soup = self.soup.find('ul', {'id': 'product-specs-list'})
-        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
-        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE).group(1)
-        return upc
-
-
-class iHerbWebPageParserWithRegex:
-    def __init__(self, source):
-        self.source = source
-
-    def find_price(self):
-        pricing_soup = self.soup.find('section', {'id': 'pricing'})
-        discontinued_soup = self.soup.find('div', {'class': 'discontinued-container'})
-        if pricing_soup:
-            master_price = pricing_soup.find('section', {'id': 'product-msrp'}).s.text
-            price = pricing_soup.find(id='price').text.strip()
-        elif discontinued_soup:
-            master_price = 'Discontinued'
-            price = 'Discontinued'
-        else:
-            master_price = None
-            price = None
-        return master_price, price
-
-    def find_categories(self):
-        cate_section_regex = r'(?=<div id="breadCrumbs">)(.*?)(?=<\/div>)'
-        category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
-        category_raw = re.findall(cate_section_regex, self.source, re.IGNORECASE)[0]
-
-        category_split = category_raw.split('<br/>')
-
-        cate_list = []
-        for cate_i in category_split[:-1]:
-            cates = re.findall(category_regex, cate_i, re.IGNORECASE)
-            cate_list.append(cates)
-        return cates
-
-    def find_upc(self):
-        upc_eng_regex = r'<li>UPC Code: <span>(\d+)<\/span>'
-        upc = re.search(upc_eng_regex, self.source, re.IGNORECASE).group(1)
-        return upc
 
 
 if __name__ == '__main__':
@@ -172,16 +211,27 @@ if __name__ == '__main__':
 
     page_sel = scraper.chrome_driver_get(url)
 
-    page_req = WebPage(page_req)
-    page_req.clean_source()
-    page_req.remove_excess_whitespace()
-    page_req = page_req.get_source()
+    # page_req = WebPage(page_req)
+    # page_req.clean_source()
+    # page_req.remove_excess_whitespace()
+    # page_req = page_req.get_source()
 
     page_sel = WebPage(page_sel)
     page_sel.clean_source()
     page_sel.remove_excess_whitespace()
     page_sel = page_sel.get_source()
 
-    soup_req = BeautifulSoup(page_req)
+    # soup_req = BeautifulSoup(page_req)
     soup_sel = BeautifulSoup(page_sel)
+    source = str(soup_sel.contents[0])
 
+    parser = iHerbWebPageParser(source)
+    parser.parse_product_page()
+
+    parserbs = iHerbWebPageParserBS(source)
+    parserbs.parse_product_page()
+    # discontinued = re.search(discontinued_regex, source, re.IGNORECASE | re.DOTALL).group(1)
+    # master_price = re.search(msrp_regex, source, re.IGNORECASE | re.DOTALL).group(1)
+    # price = re.search(price_regex, source, re.IGNORECASE | re.DOTALL).group(1)
+    #
+    # re.search(currency_regex, price, re.IGNORECASE | re.DOTALL).group(1)
