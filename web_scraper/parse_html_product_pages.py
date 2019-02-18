@@ -3,12 +3,27 @@ import json
 import glob
 import pandas as pd
 import tqdm
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 sys.path.append('../')
-from vitamin_me import iHerbWebPageParser, iHerbWebPageParserBS
+from vitamin_me import iHerbWebPageParser, iHerbWebPageParserBS, WebPage, change_default_country
 
 
 input_data_loc = 'data/products_html_pages/products_html_pages_*.json'
 excel_output_loc = 'data/products.xlsx'
+
+
+CHROMEDRIVER_PATH = "./chromedriver"
+
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--disable-gpu')
+options.add_argument('start-maximized') #
+options.add_argument('--no-sandbox') # Bypass OS security model
+options.add_argument('disable-infobars')
+options.add_argument("--disable-extensions")
+
+driver = webdriver.Chrome(CHROMEDRIVER_PATH, options=options)
 
 
 files = glob.glob(input_data_loc)
@@ -22,10 +37,28 @@ for file in files:
     product_ids = list(data.keys())
 
     for product_id, html in tqdm.tqdm(data.items()):
-        parser = iHerbWebPageParser(html)
-        row = [product_id] + parser.parse_product_page()
-        output.append(row)
+        try:
+            parser = iHerbWebPageParser(html)
+            row = [product_id] + parser.parse_product_page()
+            output.append(row)
+        except Exception as e:
+            print(product_id)
+            url = f'https://iherb.com/pr/a/{product_id}'
+            driver.get(url)
+            change_default_country(driver, 'US')
+            html = driver.execute_script("return document.documentElement.outerHTML")
+
+            html = WebPage(html)
+            html.clean_source()
+            html.remove_excess_whitespace()
+            html = html.get_source()
+
+            parser = iHerbWebPageParser(html)
+            row = [product_id] + parser.parse_product_page()
+            output.append(row)
+            data[product_id] = html
 
 
 df = pd.DataFrame(output, columns=['product_id'] + parser.column_names)
 df.to_excel(excel_output_loc, index=False)
+
