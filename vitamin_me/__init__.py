@@ -97,7 +97,7 @@ class iHerbWebPageParser:
         self.upc_eng_regex = r'<li>UPC Code: <span>\s*(\d+)\s*<\/span>'
         self.page_404_regex = r'\<div id\=\"error\-page\-404\"\>'
 
-        self.column_names = ['cate_info', 'upc', 'product_name', 'brand_name', 'currency', 'master_price', 'price']
+        self.column_names = ['cate_info', 'upc', 'product_name', 'brand_name', 'review_exists', 'currency', 'master_price', 'price']
 
     def find_product_name(self):
         return re.search(self.product_name_regex, self.source).group(1)
@@ -144,10 +144,23 @@ class iHerbWebPageParser:
         upc = re.search(self.upc_eng_regex, self.source, re.IGNORECASE | re.DOTALL).group(1)
         return upc
 
-    def parse_product_page(self):
+    def product_exists(self):
         page_404 = re.search(self.page_404_regex, self.source)
         if page_404:
-            # print('page doesn\'t exists')
+            return False
+        return True
+
+    def review_exists(self):
+        if self.product_exists() is False:
+            return None
+        none_if_review_exists = re.search(r'\<a class\=\"write\-review\" href\=', self.source, re.IGNORECASE)
+        if none_if_review_exists is None:
+            return True
+        return False
+
+    def parse_product_page(self):
+        product_exists = self.product_exists()
+        if product_exists is False:
             return [None] * 7
         cate_info = self.find_categories()
         upc = self.find_upc()
@@ -157,7 +170,8 @@ class iHerbWebPageParser:
         currency = price_info[0]
         master_price = price_info[1]
         price = price_info[2]
-        return [cate_info, upc, product_name, brand_name, currency, master_price, price]
+        review_exists = self.review_exists()
+        return [cate_info, upc, product_name, brand_name, review_exists, currency, master_price, price]
 
 
 class iHerbWebPageParserBS(iHerbWebPageParser):
@@ -203,6 +217,20 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
             cates = re.findall(self.category_regex, cate_i, re.IGNORECASE | re.DOTALL)
             cate_list.append(cates)
         return cate_list
+
+    def product_exists(self):
+        page_404 = self.soup.find('div', {'id': "error-page-404"})
+        if page_404:
+            return False
+        return True
+
+    def review_exists(self):
+        if self.product_exists() is False:
+            return None
+        none_if_review_exists = soup.find('a', {'class': 'write-review'})
+        if none_if_review_exists is None:
+            return True
+        return False
 
 
 class iHerbNavigator:
