@@ -84,7 +84,7 @@ class iHerbWebPageParser:
 
     def __init__(self, source):
         self.source = source
-        self.preprocessed_source = re.sub(r'\s+',' ', self.source)
+        self.preprocessed_source = re.sub(r'\s+', ' ', self.source)
         self.msrp_regex = r'class="col\-xs\-15 col\-md\-16 price">\s*<s>(.*?)</s>'
         self.price_regex = r'id="price">\s*(.*?)</div>'
         self.split_currency_regex = r'([^\d])([\d|\.]+)'
@@ -132,7 +132,7 @@ class iHerbWebPageParser:
         if category_raw is None:
             return None
         category_raw = category_raw.group()
-        category_split = category_raw.split('<br/>')
+        category_split = category_raw.split('<br>')
 
         cate_list = []
         for cate_i in category_split[:-1]:
@@ -164,7 +164,7 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
 
     def __init__(self, source):
         iHerbWebPageParser.__init__(self, source)
-        self.soup = BeautifulSoup(self.source)
+        self.soup = BeautifulSoup(self.source, 'html.parser')
 
     def find_product_name(self):
         product_name = self.soup.find('h1', {'id': 'name'}).text
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     scraper.chrome_options.add_argument('start-maximized')
     scraper.chrome_options.add_argument('--no-sandbox') # Bypass OS security model
     scraper.chrome_options.add_argument('disable-infobars')
-    scraper.chrome_options.add_argument("--disable-extensions")
+    scraper.chrome_options.add_argument('--disable-extensions')
     scraper.initialize_chrome_driver(CHROMEDRIVER_PATH)
 
     for product_id in product_ids:
@@ -284,6 +284,7 @@ if __name__ == '__main__':
 
         page_sel = scraper.chrome_driver_get(url)
         change_default_country(scraper.chrome_driver, 'US')
+        page_sel = scraper.chrome_driver_get(url)
 
         page_sel = WebPage(page_sel)
         page_sel.clean_source()
