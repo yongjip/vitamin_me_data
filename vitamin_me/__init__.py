@@ -251,7 +251,7 @@ class iHerbReviewGatherer:
         self.translations = ''
         self.sortId = 2
         self.withUgcSummary = 'false'  # don't need user info
-        self.all_review_list = []
+        self.raw_review_list = []
         self.cleaned_reviews = {}
 
         self.url_format = 'https://www.iherb.com/ugc/api/review?pid={pid}&limit={limit}&lc={lc}&translations={translations}&page={page}&sortId={sortId}&withUgcSummary={withUgcSummary}'
