@@ -233,34 +233,81 @@ class iHerbWebPageParserBS(iHerbWebPageParser):
         return False
 
 
-class iHerbNavigator:
+class iHerbReviewGatherer:
+    def __init__(self):
+        """
+        sortId
+        1: Most Helpful
+        2: Newest
+        3: Oldest
+        4: Rating-High to Low
+        5: Rating-Low to High
+        6: Most Relevant
+        """
+        self.page = ''
+        self.pid = ''
+        self.limit = 10
+        self.lcs = ['ko-KR','en-US']
+        self.translations = ''
+        self.sortId = 2
+        self.withUgcSummary = 'false'  # don't need user info
+        self.all_review_list = []
+        self.cleaned_reviews = {}
 
-    def __init__(self, driver):
-        self.driver = driver
+        self.url_format = 'https://www.iherb.com/ugc/api/review?pid={pid}&limit={limit}&lc={lc}&translations={translations}&page={page}&sortId={sortId}&withUgcSummary={withUgcSummary}'
 
-    def change_default_country(self, new_default_country='KR'):
-        country_select = self.driver.find_element_by_class_name('country-select')
-        old_default_country = country_select.text
-        if new_default_country == old_default_country:
-            return f'current default country is already {new_default_country}'
-        country_select.click()
+    def get_reviews_in_json_format(self, lc, page):
 
-        search_input = self.driver.find_element_by_class_name('search-input')
-        search_input.click()
+        url = self.url_format.format(pid=self.pid,
+                                     limit=self.limit,
+                                     lc=lc,
+                                     translations = self.translations,
+                                     page=page,
+                                     sortId=self.sortId,
+                                     withUgcSummary=self.withUgcSummary)
+        fetched = requests.get(url)
 
-        country_code_flags = self.driver.find_elements_by_class_name('country-code-flag')
+        fetched_content = fetched.content.decode('utf-8')
+        data_in_json = json.loads(fetched_content)
+        return data_in_json
 
-        for elem in country_code_flags:
-            # print(elem.text)
-            if elem.text == new_default_country:
-                elem.click()
-                break
+    def pull_raw_reviews(self, pid):
+        self.pid = pid
+        raw_review_list = []
+        for lc in self.lcs:
+            current_page = '1'
+            while current_page:
+                # print(current_page)
+                data_in_json = self.get_reviews_in_json_format(lc, current_page)
+                review_list = data_in_json['items']
+                raw_review_list += review_list
+                current_page = data_in_json['nextPageToken']
+        self.raw_review_list = raw_review_list
+        return raw_review_list
 
-        sleep(3)
-        submit_default_lan_change = self.driver.find_element_by_css_selector("input[type='submit']")
-        submit_default_lan_change.click()
-        sleep(5)
-        return print(f'changed default language from {old_default_country} to {new_default_country}')
+    def clean_reviews(self):
+        cleaned_reviews = {}
+        cleaned_reviews[self.pid] = {}
+        for idx, review in enumerate(self.raw_review_list):
+            customerProfileLink = None
+            minimized_review = dict(#id=review['id'],
+                                    score=review['score'],
+                                    reviewTitle=review['reviewTitle'],
+                                    reviewText=review['reviewText'],
+                                    ratingValue=review['ratingValue'],
+                                    helpfulYes=review['helpfulYes'],
+                                    helpfulNo=review['helpfulNo'],
+                                    productId=review['productId'],
+                                    postedDate=review['postedDate'],
+                                    languageCode=review['languageCode']
+                                    )
+            if 'customerProfileLink' in review.keys():
+                customerProfileLink = review['customerProfileLink']
+            minimized_review['customerProfileLink'] = customerProfileLink
+
+            cleaned_reviews[self.pid][idx] = minimized_review
+        self.cleaned_reviews = cleaned_reviews
+        return cleaned_reviews
 
 
 # change default language
