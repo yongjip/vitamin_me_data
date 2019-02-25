@@ -12,11 +12,11 @@ from vitamin_me import iHerbReviewGatherer, get_logger
 size = 10000
 limit = 1000
 
-output_dir = 'data/reviews_in_json/'
-os.makedirs(output_dir, exist_ok=True)
+input_data_loc = '../data/products.csv'
+output_dir = '../data/reviews_in_json/'
 output_json_name = 'review_pages_{start_id}_{end_id}.json'
+os.makedirs(output_dir, exist_ok=True)
 
-input_data_loc = 'data/products.csv'
 df = pd.read_csv(input_data_loc)
 
 products_having_reviews = df.loc[df.review_exists.isin([True]), 'product_id'].tolist()
