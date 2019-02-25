@@ -90,7 +90,7 @@ class iHerbWebPageParser:
         self.split_currency_regex = r'([^\d])([\d|\.]+)'
         self.discontinued_regex = r'<p class="discontinued-title">'
         self.cate_section_regex = r'(?=<div id="breadCrumbs">)(.*?)(?=<\/div>)'
-        self.category_regex = r'<a (?:class="last" |)href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)">'
+        self.category_regex = r'<a href="https://(?:\w{0,3}\.)iherb.com/(?:c/|)([\w\-\_]+)"(?: class="last"|)>'
         self.product_name_regex = r'<h1 id="name">(.*?)</h1>'
         self.url_regex = r'https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)'
         self.brand_name_regex = r'<div id="brand">\s*\w+\s*<a href="{}"> <span>\s*(.*?)\s*</span>'.format(self.url_regex)
