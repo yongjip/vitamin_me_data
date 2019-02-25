@@ -247,7 +247,7 @@ class iHerbReviewGatherer:
         self.page = ''
         self.pid = ''
         self.limit = 10
-        self.lcs = ['ko-KR','en-US']
+        self.lcs = ['ko-KR', 'en-US']
         self.translations = ''
         self.sortId = 2
         self.withUgcSummary = 'false'  # don't need user info
