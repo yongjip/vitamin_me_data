@@ -9,8 +9,8 @@ sys.path.append('../')
 from vitamin_me import iHerbWebPageParser, iHerbWebPageParserBS, WebPage, change_default_country
 import time
 
-input_data_loc = 'data/products_html_pages/products_html_pages_*.json'
-output_loc = 'data/products.csv'
+input_data_loc = '../data/products_html_pages/products_html_pages_*.json'
+output_loc = '../data/products.csv'
 
 
 CHROMEDRIVER_PATH = "./chromedriver"

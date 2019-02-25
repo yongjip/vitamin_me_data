@@ -4,8 +4,8 @@ import json
 
 import tqdm
 
-input_data_loc = 'data/reviews_in_json/review_pages_*.json'
-output_loc = 'data/reviews.csv'
+input_data_loc = '../data/reviews_in_json/review_pages_*.json'
+output_loc = '../data/reviews.csv'
 
 
 CHROMEDRIVER_PATH = "./chromedriver"

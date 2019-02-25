@@ -17,8 +17,8 @@ size = 10000
 start_product_id = 1
 end_product_id = 10000
 
-output_dir = 'data/products_html_pages/'
-output_json_name = 'products_html_pages_{start_id}_{end_id}.json'
+output_dir = '../data/products_html_pages/'
+output_json_name = '../products_html_pages_{start_id}_{end_id}.json'
 CHROMEDRIVER_PATH = "./chromedriver"
 
 os.makedirs(output_dir, exist_ok=True)

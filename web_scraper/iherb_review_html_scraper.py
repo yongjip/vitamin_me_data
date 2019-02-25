@@ -18,11 +18,11 @@ import json
 size = 10
 max_retry = 10
 
-output_dir = 'data/html_review_pages/'
-os.makedirs(output_dir, exist_ok=True)
+input_data_loc = '../data/true_if_review_exists.csv'
+output_dir = '../data/html_review_pages/'
 output_json_name = 'html_review_pages_{start_id}_{end_id}.json'
+os.makedirs(output_dir, exist_ok=True)
 
-input_data_loc = 'data/true_if_review_exists.csv'
 df = pd.read_csv(input_data_loc)
 
 products_having_reviews = df.loc[df.review_exists == True, 'product_id'].tolist()
