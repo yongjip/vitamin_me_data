@@ -15,7 +15,7 @@ import os
 import json
 
 
-size = 2
+size = 10
 max_retry = 10
 
 output_dir = 'data/html_review_pages/'
@@ -123,6 +123,7 @@ change_default_country(default_country)
 
 product_review_dict = defaultdict(lambda: '')
 
+
 def main(product_id):
     url = f'https://kr.iherb.com/r/a/{product_id}'
     driver.get(url)
@@ -153,9 +154,13 @@ def main(product_id):
             reviews_html = ' '.join(reviews_html_list)
 
             page_num_elements = paging.find_all('button', {'class': 'page'})
-            page_numbers = [int(elem.text) for elem in page_num_elements]
+            if page_num_elements:
+                page_numbers = [int(elem.text) for elem in page_num_elements]
+                max_page_num = max(page_numbers) if page_numbers else 0
+            else:
+                max_page_num = 0
 
-            page_remaining = True if current_page_num < max(page_numbers) else False
+            page_remaining = True if current_page_num < max_page_num else False
             if page_remaining is True:
                 # go to the next page
                 next_page_elem = driver.find_elements_by_class_name('arrow-button')[1]
