@@ -330,7 +330,7 @@ def change_default_country(driver, new_default_country='KR'):
             break
 
     sleep(3)
-    submit_default_lan_change = driver.find_element_by_css_selector("input[type='submit']")
+    submit_default_lan_change = driver.find_element_by_class_name("save-selection")
     submit_default_lan_change.click()
     sleep(5)
     return print(f'changed default language from {old_default_country} to {new_default_country}')
